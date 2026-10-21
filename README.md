@@ -93,3 +93,31 @@ W środowisku prywatnym (nie na publicznym GitHubie) z wejściowym APK użytkown
 **To nie jest zweryfikowany instalator produkcyjny.** Nie przeprowadzono instalacji ani testów urządzeniowych. Brakujące splity i ewentualna kontrola licencyjna mogą uniemożliwić uruchomienie aplikacji. Własny podpis nie pozwala na aktualizację oficjalnego 1DM+ bez odinstalowania, a użytkownik NIE powinien odinstalowywać oficjalnej aplikacji w celu przetestowania eksperymentalnego pakietu — mógłby stracić sesje i dane.
 
 Żaden fragment płatnego APK ani prywatny klucz podpisu nie jest commitowany do repozytorium.
+
+## Etap 4 — pełny Split APK otrzymany od użytkownika (21.10.2026)
+
+Z oryginalnego pliku `.apks` użytkownika udało się odczytać **trzy** części: `base.apk`, `split_config.arm64_v8a.apk` i `split_config.xxhdpi.apk`. Oryginalna paczka zawiera te same części instalacji 1DM+ 18.2 (`30249`), których brakowało przy pierwszym eksporcie.
+
+W prywatnym, lokalnym środowisku zbudowano dwa testowe archiwa `.apks`, oba zawierają komplet trzech APK podpisanych **tym samym** własnym certyfikatem testowym i zweryfikowanych przez oficjalny Android `apksigner`:
+
+- `FULL_v2.apks` — oryginalny identyfikator pakietu 1DM+. Taki pakiet **NIE** może zostać zainstalowany w miejscu oryginalnej aplikacji z Google Play ze względu na inny certyfikat. **Nie odinstalowuj płatnej aplikacji**, żeby go testować.
+- `TEST_CLONE_v2.apks` — inny identyfikator aplikacji (`idm.internet.download.manager.plus.tabgroups`) i przepisane nazwy providerów w manifestach, dzięki czemu może próbować instalować się **obok** oryginału. Klon **może nie działać** z powodu mechanizmów licencyjnych lub wewnętrznych odwołań do starego identyfikatora. Nie obejmowano ani nie omijano weryfikacji licencji.
+
+Wyłącznie testy struktury i podpisu zostały zakończone sukcesem. **Nie potwierdzono działania na realnym Androidzie**; mechanizm jest nakładką, a nie przebudową oryginalnego widoku kart. Przed uznaniem funkcji za ukończoną wymagane są testy uruchomienia, grupowania, zapisu sesji, pobierania i licencji.
+
+### Odtworzenie lokalnej kompilacji (bez przesyłania 1DM+ na GitHub)
+
+Wymaga lokalnego pakietu `.apks`, `classes.dex` z artefaktu GitHub Actions, `apksigner.jar` z Android SDK oraz **własnego** klucza PKCS#8 DER i pasującego certyfikatu X.509 DER.
+
+```bash
+python3 scripts/build_split_apks_local.py \
+  --apks /private/1DM+_18.2_30249.apks \
+  --dex /private/classes.dex \
+  --key /private/test-key.der \
+  --cert /private/test-cert.der \
+  --apksigner-jar /sdk/build-tools/lib/apksigner.jar \
+  --clone-package idm.internet.download.manager.plus.tabgroups \
+  --out /private/1DMplus_Groups_TEST_CLONE_v2.apks
+```
+
+Wariant bez `--clone-package` zachowa oficjalny identyfikator pakietu (niezgodny podpis). **Nie przesyłaj** oryginalnego APK, pełnego `.apks`, wynikowych płatnych instalatorów, ani prywatnego klucza na publiczny GitHub. Build CI składa wyłącznie nasz moduł — nie aplikację producenta.
