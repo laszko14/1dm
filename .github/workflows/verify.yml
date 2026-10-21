@@ -21,17 +21,33 @@ jobs:
         with:
           name: tab-groups-core
           path: build/tab-groups-core.jar
-      - name: Compile native Android UI with installed SDK
+      - name: Compile native Android dialogs (SDK available on hosted runner)
         shell: bash
         run: |
           set -euo pipefail
           android_jar="$(find "${ANDROID_HOME}/platforms" -name android.jar | sort -V | tail -1)"
-          if [[ ! -f "$android_jar" ]]; then echo "Android SDK platform missing" >&2; exit 1; fi
+          if [[ ! -f "$android_jar" ]]; then echo "Android SDK platform not found" >&2; exit 1; fi
           mkdir -p build/android-classes
           find src/android/java -name '*.java' -print0 | xargs -0 javac -encoding UTF-8 -source 8 -target 8 -cp "$android_jar:build/classes" -d build/android-classes
           jar --create --file build/tab-groups-ui.jar -C build/android-classes .
-      - name: Upload native UI classes (not an APK)
+      - name: Upload compiled Android UI classes (not a full APK)
         uses: actions/upload-artifact@v4
         with:
           name: tab-groups-android-ui
           path: build/tab-groups-ui.jar
+      - name: Compile experimental runtime injection (no commercial APK included)
+        shell: bash
+        run: |
+          set -euo pipefail
+          android_jar="$(find "${ANDROID_HOME}/platforms" -name android.jar | sort -V | tail -1)"
+          d8_bin="$(find "${ANDROID_HOME}/build-tools" -name d8 | sort -V | tail -1)"
+          mkdir -p build/stubs build/injected-classes build/injected-dex
+          find src/inject/stubs -name '*.java' -print0 | xargs -0 javac -encoding UTF-8 -source 8 -target 8 -cp "$android_jar" -d build/stubs
+          find src/inject/java -name '*.java' -print0 | xargs -0 javac -encoding UTF-8 -source 8 -target 8 -cp "$android_jar:build/stubs:build/classes" -d build/injected-classes
+          find build/classes build/injected-classes -name '*.class' -print0 | xargs -0 "$d8_bin" --min-api 24 --lib "$android_jar" --classpath build/stubs --output build/injected-dex
+          ls -lah build/injected-dex/classes.dex
+      - name: Upload runtime injection classes.dex (not an APK)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tab-groups-injection-dex
+          path: build/injected-dex/classes.dex
