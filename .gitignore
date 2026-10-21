@@ -1,0 +1,14 @@
+# Proprietary third-party binaries must never be uploaded to this PUBLIC repository.
+*.apk
+*.apks
+*.aab
+*.dex
+*.odex
+*.vdex
+*.keystore
+*.jks
+*.p12
+local.properties
+build/
+.gradle/
+.idea/
