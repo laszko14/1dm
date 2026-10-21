@@ -78,3 +78,18 @@ Aktualnie nie ma gotowego APK do instalacji. Nie udostępniamy płatnego kodu an
 - Aby uzyskać APK, trzeba lokalnie wbudować tę klasę do skompilowanego APK, zmodyfikować manifest i podpisać cały pakiet. Instalacja może wymagać jego brakujących splitów (`base__abi`, `base__density`).
 
 **Status:** potrzebny test runtime; GitHub nie posiada i nie przetwarza oryginalnego APK.
+
+## Etap 3 — lokalna kompilacja testowej kopii APK (21.10.2026)
+
+W środowisku prywatnym (nie na publicznym GitHubie) z wejściowym APK użytkownika i `classes.dex` z CI wykonano następujące kroki:
+
+1. Spakowano oryginalne zasoby i DEX-y bez publikowania ich w repozytorium.
+2. Podmieniono nazwę klasy Application w binarnym manifeście na `InjectedBrowserApp`.
+3. Dodano skompilowany moduł jako `classes4.dex`.
+4. Na potrzeby jednego, niekompletnego base APK usunięto z manifestu wymóg `base__abi,base__density` — **nie uzupełnia to brakujących zasobów**.
+5. Podpisano własnym, testowym certyfikatem APK Signature Scheme v2.
+6. Oficjalne narzędzie Android `apksigner verify --verbose` potwierdziło poprawny podpis v2. Archiwum ZIP przeszło test integralności, a `resources.arsc` i pliki DEX są wyrównane do 4 bajtów.
+
+**To nie jest zweryfikowany instalator produkcyjny.** Nie przeprowadzono instalacji ani testów urządzeniowych. Brakujące splity i ewentualna kontrola licencyjna mogą uniemożliwić uruchomienie aplikacji. Własny podpis nie pozwala na aktualizację oficjalnego 1DM+ bez odinstalowania, a użytkownik NIE powinien odinstalowywać oficjalnej aplikacji w celu przetestowania eksperymentalnego pakietu — mógłby stracić sesje i dane.
+
+Żaden fragment płatnego APK ani prywatny klucz podpisu nie jest commitowany do repozytorium.
