@@ -1,4 +1,4 @@
-# 1DM+ — grupy kart (etap 2: adapter i natywny interfejs)
+# 1DM+ — grupy kart (etap 2: logika, adapter i natywny dialog)
 
 Repozytorium z **własnym kodem** do zarządzania grupami otwartych kart oraz z narzędziem do analizy nazw metod w pliku DEX. To nie jest źródłowy kod zamkniętej aplikacji 1DM+.
 
@@ -8,18 +8,17 @@ Repozytorium z **własnym kodem** do zarządzania grupami otwartych kart oraz z 
 - [x] Zaimplementowano niezależny model grup i przypisywania identyfikatorów kart (źródła Java).
 - [x] Utworzono osobny format przechowywania grup, bez zmiany zapisanych kart przeglądarki.
 - [x] Dodano testy tworzenia/zmiany nazwy/usuwania/przenoszenia/zapisywania/odtwarzania/uzgadniania z sesją.
-- [x] Dodano koordynator sesji `TabGroupCoordinator` i filtr listy otwartych kart.
-- [x] Dodano niezależną sesję incognito bez zapisu jej grup na dysk.
-- [x] Dodano `ReflectiveTabProvider`, korzystający z potwierdzonych sygnatur API 1DM+.
-- [x] Dodano polski panel Android `TabGroupsDialog` do obsługi grup.
-- [x] Rozszerzono zestaw testów Java i CI Android SDK.
-- [ ] Zweryfikować trwałość natywnych identyfikatorów kart po restarcie.
+- [x] Przygotowano `TabGroupCoordinator`: aktywna grupa, filtrowanie rzeczywistych kart, porządek kart 1DM+, odrębna sesja prywatna bez zapisu jej grup na dysk.
+- [x] Przygotowano `ReflectiveTabProvider`: odczyt `TabsManager.size()/getTabAtPosition()/LightningView.getId()` przez adapter runtime.
+- [x] Przygotowano polski natywny `TabGroupsDialog` (tworzenie, przełączanie, zmiana nazwy, usuwanie, przenoszenie karty). UI należy dopiero podłączyć do prawdziwego panelu aplikacji.
+- [x] Zweryfikowano 48 kontroli testowych logiki, adaptera i obsługi sesji (17+28+3).
+- [ ] Potwierdzić, że ID karty jest trwałe po restarcie przeglądarki (same sygnatury nie wystarczają).
 - [ ] Sprawdzić czy i jak możliwa jest zgodna z licencją integracja z natywnym panelem kart 1DM+ (`TabsFragment`).
 - [ ] Zaimplementować widok grup i wywołania `TabsManager` w rzeczywistym APK.
 - [ ] Testy na urządzeniu, zgodność z pobieraniem, przekierowaniami i przywracaniem sesji.
 - [ ] Zbudowanie kompletnej, podpisanej aplikacji (nie jest możliwe tylko z tym repozytorium).
 
-**Ważne:** Kod z tego repo **nie zmienia jeszcze wyglądu ani działania 1DM+**. Kompilowane przez CI biblioteki `.jar` to własna logika i osobne klasy Android. Żadna z nich nie jest zmodyfikowanym instalatorem APK.
+**Ważne:** Kod z tego repo **nie zmienia jeszcze wyglądu ani działania zainstalowanego 1DM+**. Kompilowane `.jar` obejmują logikę grup i osobno klasy dialogu Android. To nie jest zmodyfikowany instalator APK.
 
 ## Jak mają działać grupy
 
@@ -37,13 +36,14 @@ Repozytorium z **własnym kodem** do zarządzania grupami otwartych kart oraz z 
 bash scripts/test.sh
 ```
 
-Wymaga JDK 17. GitHub Actions uruchamia testy na push.
+Wymaga JDK 17. GitHub Actions uruchamia testy na push oraz kompiluje natywny panel z Android SDK. Same testy nie dowodzą poprawnej integracji z zamkniętym 1DM+.
 
 ## Lokalna diagnostyka APK (bez jego publikowania)
 
 ```bash
 python3 scripts/dex_index.py /sciezka/do/wlasnego.apk --filter TabsManager
 python3 scripts/dex_index.py /sciezka/do/wlasnego.apk --filter TabsFragment
+python3 scripts/dex_contract.py /sciezka/do/wlasnego.apk --filter TabsManager --name getTab
 ```
 
 Skrypt czyta lokalny DEX i pokazuje **nazwy** znalezionych klas/metod; nie publikuje bajtkodu.
@@ -51,8 +51,8 @@ Skrypt czyta lokalny DEX i pokazuje **nazwy** znalezionych klas/metod; nie publi
 ## Integracja z aplikacją — następny etap
 
 1. Ustalić trwały identyfikator każdej karty w `TabsManager.getTabById` / `getTabIndexById`.
-2. Podczas przywracania sesji (`restoreState`, `initializeTabs`) uruchomić `reconcileOpenTabs`, a przy otwarciu/zamknięciu karty wywołać odpowiednio `addNewTab`/`closeTab`.
-3. W `TabsFragment` wyświetlić listę grup i przełączać filtr jego adaptera; potrzebny będzie odrębny interfejs do tworzenia i przenoszenia kart.
+2. Zintegrować `TabGroupCoordinator.onSessionReady()` **wyłącznie po zakończeniu** przywracania sesji (`restoreState`, `initializeTabs`), a przy otwarciu/zamknięciu karty wywołać `onTabOpened` / `onTabClosed`. Nie używać `onSessionReady` podczas częściowego przywracania.
+3. Podłączyć gotowy `TabGroupsDialog` do `TabsFragment`, a następnie zastosować filtr `visibleTabIds()` w adapterze, zachowując oryginalną kolejność kart.
 4. Zapis grup wykonywać w prywatnym katalogu aplikacji, **nie** zastępować istniejącego formatu zapisu sesji 1DM+.
 5. Uruchomić testy kompatybilności z aktualną wersją 18.2 oraz testy regresji pobierania.
 
@@ -60,11 +60,21 @@ Skrypt czyta lokalny DEX i pokazuje **nazwy** znalezionych klas/metod; nie publi
 
 **Repo jest publiczne. Nie commituj APK 1DM+, zdekodowanych zasobów, bibliotek ani kluczy.** Płatny plik aplikacji użytkownika pozostaje poza GitHubem. Projekt nie zawiera obchodzenia weryfikacji licencji ani podpisu aplikacji. Podpis zmodyfikowanego APK byłby inny niż podpis producenta — nie można go bezpiecznie nałożyć jako aktualizacji.
 
-## Etap 2: gotowe elementy
+## Etap 2 — pliki
 
-- `TabGroupCoordinator` — oddziela prywatne i zwykłe grupy, filtruje natywne ID kart, zachowuje ich kolejność.
-- `ReflectiveTabProvider` — adapter do `TabsManager.size()`, `getTabAtPosition(int)` i `LightningView.getId()`.
-- `TabGroupsDialog` — natywny polski interfejs do grup, możliwy do wywołania po integracji z aplikacją.
-- [Dokumentacja integracji](docs/1dm-18.2-contract.md) — potwierdzone API DEX, zagrożenia i dalsze prace.
+- [`docs/1dm-18.2-contract.md`](docs/1dm-18.2-contract.md) — potwierdzone API DEX i niewiadome integracji.
+- `src/main/java/org/local/tabgroups/TabGroupCoordinator.java` — most do prawdziwej sesji i prywatność.
+- `src/main/java/org/local/tabgroups/ReflectiveTabProvider.java` — własny adapter pod sygnatury 1DM+ 18.2.
+- `src/android/java/org/local/tabgroups/TabGroupsDialog.java` — natywne dialogi Android (dopiero do podpięcia).
 
-**Status:** etapy 1 i 2 to działające komponenty, ale nadal nie ma gotowego APK 1DM+ ani instalowalnej modyfikacji.
+Aktualnie nie ma gotowego APK do instalacji. Nie udostępniamy płatnego kodu ani nie obchodzimy podpisów i weryfikacji licencji.
+
+## Etap 3 — eksperymentalny hook Activity (nieprzetestowany na urządzeniu)
+
+- `src/inject/java/org/local/tabgroups/InjectedBrowserApp.java` — eksperymentalna klasa startowa dziedzicząca `BrowserApp` (bez zastępowania jej działania).
+- `src/inject/java/org/local/tabgroups/TabGroupsOverlay.java` — przycisk *Grupy* i panel wyświetlający karty konkretnej grupy; nie zmienia oryginalnego adaptera 1DM+.
+- `src/inject/stubs` — **wyłącznie kompilacyjna** deklaracja `BrowserApp`, nie wolno wstrzykiwać jej do DEX.
+- GHA kompiluje tylko nowy `classes.dex` do prywatnego testu; nie trafia tam płatny APK.
+- Aby uzyskać APK, trzeba lokalnie wbudować tę klasę do skompilowanego APK, zmodyfikować manifest i podpisać cały pakiet. Instalacja może wymagać jego brakujących splitów (`base__abi`, `base__density`).
+
+**Status:** potrzebny test runtime; GitHub nie posiada i nie przetwarza oryginalnego APK.
