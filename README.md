@@ -1,4 +1,4 @@
-# 1DM+ — prototyp grup kart
+# 1DM+ — grupy kart (etap 2: adapter i natywny interfejs)
 
 Repozytorium z **własnym kodem** do zarządzania grupami otwartych kart oraz z narzędziem do analizy nazw metod w pliku DEX. To nie jest źródłowy kod zamkniętej aplikacji 1DM+.
 
@@ -8,12 +8,18 @@ Repozytorium z **własnym kodem** do zarządzania grupami otwartych kart oraz z 
 - [x] Zaimplementowano niezależny model grup i przypisywania identyfikatorów kart (źródła Java).
 - [x] Utworzono osobny format przechowywania grup, bez zmiany zapisanych kart przeglądarki.
 - [x] Dodano testy tworzenia/zmiany nazwy/usuwania/przenoszenia/zapisywania/odtwarzania/uzgadniania z sesją.
+- [x] Dodano koordynator sesji `TabGroupCoordinator` i filtr listy otwartych kart.
+- [x] Dodano niezależną sesję incognito bez zapisu jej grup na dysk.
+- [x] Dodano `ReflectiveTabProvider`, korzystający z potwierdzonych sygnatur API 1DM+.
+- [x] Dodano polski panel Android `TabGroupsDialog` do obsługi grup.
+- [x] Rozszerzono zestaw testów Java i CI Android SDK.
+- [ ] Zweryfikować trwałość natywnych identyfikatorów kart po restarcie.
 - [ ] Sprawdzić czy i jak możliwa jest zgodna z licencją integracja z natywnym panelem kart 1DM+ (`TabsFragment`).
 - [ ] Zaimplementować widok grup i wywołania `TabsManager` w rzeczywistym APK.
 - [ ] Testy na urządzeniu, zgodność z pobieraniem, przekierowaniami i przywracaniem sesji.
 - [ ] Zbudowanie kompletnej, podpisanej aplikacji (nie jest możliwe tylko z tym repozytorium).
 
-**Ważne:** Kod z tego repo **nie zmienia jeszcze wyglądu ani działania 1DM+**. Kompilowana przez CI biblioteka `.jar` to wyłącznie własna logika grup, nie zmodyfikowany instalator APK.
+**Ważne:** Kod z tego repo **nie zmienia jeszcze wyglądu ani działania 1DM+**. Kompilowane przez CI biblioteki `.jar` to własna logika i osobne klasy Android. Żadna z nich nie jest zmodyfikowanym instalatorem APK.
 
 ## Jak mają działać grupy
 
@@ -53,3 +59,12 @@ Skrypt czyta lokalny DEX i pokazuje **nazwy** znalezionych klas/metod; nie publi
 ## Ochrona danych i licencji
 
 **Repo jest publiczne. Nie commituj APK 1DM+, zdekodowanych zasobów, bibliotek ani kluczy.** Płatny plik aplikacji użytkownika pozostaje poza GitHubem. Projekt nie zawiera obchodzenia weryfikacji licencji ani podpisu aplikacji. Podpis zmodyfikowanego APK byłby inny niż podpis producenta — nie można go bezpiecznie nałożyć jako aktualizacji.
+
+## Etap 2: gotowe elementy
+
+- `TabGroupCoordinator` — oddziela prywatne i zwykłe grupy, filtruje natywne ID kart, zachowuje ich kolejność.
+- `ReflectiveTabProvider` — adapter do `TabsManager.size()`, `getTabAtPosition(int)` i `LightningView.getId()`.
+- `TabGroupsDialog` — natywny polski interfejs do grup, możliwy do wywołania po integracji z aplikacją.
+- [Dokumentacja integracji](docs/1dm-18.2-contract.md) — potwierdzone API DEX, zagrożenia i dalsze prace.
+
+**Status:** etapy 1 i 2 to działające komponenty, ale nadal nie ma gotowego APK 1DM+ ani instalowalnej modyfikacji.

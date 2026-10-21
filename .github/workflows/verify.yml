@@ -21,3 +21,17 @@ jobs:
         with:
           name: tab-groups-core
           path: build/tab-groups-core.jar
+      - name: Compile native Android UI with installed SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          android_jar="$(find "${ANDROID_HOME}/platforms" -name android.jar | sort -V | tail -1)"
+          if [[ ! -f "$android_jar" ]]; then echo "Android SDK platform missing" >&2; exit 1; fi
+          mkdir -p build/android-classes
+          find src/android/java -name '*.java' -print0 | xargs -0 javac -encoding UTF-8 -source 8 -target 8 -cp "$android_jar:build/classes" -d build/android-classes
+          jar --create --file build/tab-groups-ui.jar -C build/android-classes .
+      - name: Upload native UI classes (not an APK)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tab-groups-android-ui
+          path: build/tab-groups-ui.jar
